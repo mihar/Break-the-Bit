@@ -1,0 +1,5 @@
+breakthebit.org
+===============
+
+I write my articles for my tech blog [Break the bit](http://breakthebit.org) in Markdown
+and I use GitHub to version them with Git.
