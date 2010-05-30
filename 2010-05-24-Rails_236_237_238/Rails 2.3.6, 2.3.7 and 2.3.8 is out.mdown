@@ -1,0 +1,35 @@
+It was about time, we've been with 2.3.5 for too long. This update deprecates
+some old stuff and doing so preps you for the imminent 3.0 release.
+
+Read a detailed overview of all the bug fixes and other improvements on the
+[Riding
+Rails](http://weblog.rubyonrails.org/2010/5/23/ruby-on-rails-2-3-6-released)
+official blog.
+
+One of the more welcome additions affects us developers of multilingual apps
+or apps that don't have english as their default. Before you had to manually
+call upon `human_attribute_name`, that used I18n when using the `label` or
+`label_tag` helpers. Now it's done automatically.
+
+    - form_for @inquiry do |f| %fieldset %legend Vprašalnik # Before: .question=
+      f.label :industry, Inquiry.human_attribute_name(:industry) # After: .question=
+      f.label :industry
+
+A major boost for readability and productivity. In order for this to work, you
+must have the following translations setup like this (i'm using the Slovenian
+locale) in `config/locales`:
+
+    sl: activerecord: attributes: inquiry: industry: "Industrija"
+
+Among other things, the fucking omnipresent deprecation message has now been
+silenced. Thank you!
+
+A day after the much awaited 2.3.6 release they found some bugs in the
+HTML-safety features. [2.3.7 was
+needed](http://weblog.rubyonrails.org/2010/5/24/ruby-on-rails-2-3-7-released).
+
+**Update** May 25th, 2010
+
+2.3.8 is out. Apparently two releases in two days weren't enough :-) Well,
+they were in a hurry and let a dependency slip through. This release fixes
+everything back to normal.

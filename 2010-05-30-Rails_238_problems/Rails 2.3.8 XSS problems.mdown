@@ -1,0 +1,6 @@
+I've been having serious problems with the release of the [Rails patches
+triumvirate](/post/627672904/rails-2-3-6-2-3-7-and-2-3-8-is-out) last week.
+They were needed because of the further integration of Rails 3.0 priniciples,
+to force people to start thinking in Rails 3.0 terms.
+
+One change specifically affected many. It was the XSS
