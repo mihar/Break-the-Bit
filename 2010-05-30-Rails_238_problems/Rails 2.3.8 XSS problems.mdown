@@ -19,13 +19,14 @@ like in this example from the Rails' own [auto_complete plugin][3]
     end
 
 The problem is as said before, string concatenation with the `+` operator.
-Rails under 2.3.8 automatically escapes such strings, assuming they're "dirty"
+Rails under 2.3.8 automatically escapes such strings, assuming they're *"dirty"*
 by default.
 
 Workarounds include using the `concat` method which outputs text inside
 non-output code blocks `<% %>` and string interpolation with `#{}`.
 
-**Solution 1** (you need to use non-output blocks `<% %>` in ERb or `-` in HAML):
+**Solution 1** (you need to use non-output blocks `<% text_field_with_auto_complete %>` in 
+ERb or `- text_field_with_auto_complete` in HAML):
 
     def text_field_with_auto_complete(object, method, tag_options = {}, completion_options = {})
       concat (completion_options[:skip_style] ? "" : auto_complete_stylesheet)
