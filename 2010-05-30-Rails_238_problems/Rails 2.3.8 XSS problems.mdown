@@ -1,6 +1,55 @@
-I've been having serious problems with the release of the [Rails patches
-triumvirate](/post/627672904/rails-2-3-6-2-3-7-and-2-3-8-is-out) last week.
-They were needed because of the further integration of Rails 3.0 priniciples,
-to force people to start thinking in Rails 3.0 terms.
+I've been having serious problems with the release of the [triumvirate of
+Rails patch versions][1] last week.
 
-One change specifically affected many. It was the XSS
+One change specifically affected many. The accidentally forced HTML escaping
+in the templates effectively made the [Rails XSS][2] plugin a dependency. A
+bad thing, because it instantly broke *a lot* of applications out there, that
+were humming happily on 2.3.5.
+
+The 2.3.8 release should fix all this, but some escaping slipped through the
+cracks. We're talking about escaping helpers that return concatenated strings,
+like in this example from the Rails' own [auto_complete plugin][3]
+`text_field_with_auto_complete` [helper method][4]:
+
+    def text_field_with_auto_complete(object, method, tag_options = {}, completion_options = {})
+      (completion_options[:skip_style] ? "" : auto_complete_stylesheet) +
+      text_field(object, method, tag_options) +
+      content_tag("div", "", :id => "#{object}_#{method}_auto_complete", :class => "auto_complete") +
+      auto_complete_field("#{object}_#{method}", { :url => { :action => "auto_complete_for_#{object}_#{method}" } }.update(completion_options))
+    end
+
+The problem is as said before, string concatenation with the `+` operator.
+Rails under 2.3.8 automatically escapes such strings, assuming they're "dirty"
+by default.
+
+Workarounds include using the `concat` method which outputs text inside
+non-output code blocks `<% %>` and string interpolation with `#{}`.
+
+**Solution 1** (you need to use non-output blocks `<% %>` in ERb or `-` in HAML):
+
+    def text_field_with_auto_complete(object, method, tag_options = {}, completion_options = {})
+      concat (completion_options[:skip_style] ? "" : auto_complete_stylesheet)
+      concat text_field(object, method, tag_options)
+      concat content_tag("div", "", :id => "#{object}_#{method}_auto_complete", :class => "auto_complete")
+      concat auto_complete_field("#{object}_#{method}", { :url => { :action => "auto_complete_for_#{object}_#{method}" } }.update(completion_options))
+    end
+
+**Solution 2**:
+
+    def text_field_with_auto_complete(object, method, tag_options = {}, completion_options = {})
+      stylesheet  = (completion_options[:skip_style] ? "" : auto_complete_stylesheet)
+      input       = text_field(object, method, tag_options)
+      results     = content_tag("div", "", :id => "#{object}_#{method}_auto_complete", :class => "auto_complete")
+      js          = auto_complete_field("#{object}_#{method}", { :url => { :action => "auto_complete_for_#{object}_#{method}" } }.update(completion_options))
+  
+      "#{stylesheet} #{input} #{results} #{js}"
+    end
+    
+Rails 2.3.9 is expected to fix this for good, as shown in this [commit][5].
+
+
+[1]: /post/627672904/rails-2-3-6-2-3-7-and-2-3-8-is-out                                             "Rails 2.3.6, 2.3.7 and 2.3.8 released"
+[2]: http://github.com/rails/rails_xss                                                              "Rails XSS plugin for escaping outputted string by default"
+[3]: http://github.com/rails/auto_complete                                                         "Rails auto_complete plugin on GitHub"
+[4]: http://github.com/rails/auto_complete/blob/master/lib/auto_complete_macros_helper.rb#L107-112  "Rails' text_field_with_auto_complete helper method that fails with 2.3.8 release"
+[5]: http://github.com/rails/rails/commit/a815f0c5a3a873aefca76f459ce05ddde73080db                  "Commit into Rails repo on GitHub that fixes string concatenation escaping"
