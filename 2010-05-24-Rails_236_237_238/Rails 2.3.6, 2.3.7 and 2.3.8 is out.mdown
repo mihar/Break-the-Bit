@@ -2,9 +2,7 @@ It was about time, we've been with 2.3.5 for too long. This update deprecates
 some old stuff and doing so preps you for the imminent 3.0 release.
 
 Read a detailed overview of all the bug fixes and other improvements on the
-[Riding
-Rails](http://weblog.rubyonrails.org/2010/5/23/ruby-on-rails-2-3-6-released)
-official blog.
+[Riding Rails][1] official blog.
 
 One of the more welcome additions affects us developers of multilingual apps
 or apps that don't have english as their default. Before you had to manually
@@ -25,11 +23,15 @@ Among other things, the fucking omnipresent deprecation message has now been
 silenced. Thank you!
 
 A day after the much awaited 2.3.6 release they found some bugs in the
-HTML-safety features. [2.3.7 was
-needed](http://weblog.rubyonrails.org/2010/5/24/ruby-on-rails-2-3-7-released).
+HTML-safety features. [2.3.7 was needed][2].
 
 **Update** May 25th, 2010
 
-2.3.8 is out. Apparently two releases in two days weren't enough :-) Well,
-they were in a hurry and let a dependency slip through. This release fixes
-everything back to normal.
+[2.3.8][3] is out. Apparently two releases in two days weren't enough :-)
+Well, they were in a hurry and the 2.3.7 release unfortunately forced everyone
+to use rails_xss escaping of strings by default.
+
+
+[1]: http://weblog.rubyonrails.org/2010/5/23/ruby-on-rails-2-3-6-released   "Rails 2.3.6 release on Riding Rails"
+[2]: http://weblog.rubyonrails.org/2010/5/24/ruby-on-rails-2-3-7-released   "Rails 2.3.7 release on Riding Rails"
+[3]: http://weblog.rubyonrails.org/2010/5/25/ruby-on-rails-2-3-8-released   "Rails 2.3.8 release on Riding Rails"
