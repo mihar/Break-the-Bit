@@ -1,0 +1,173 @@
+I've recently assisted a client with the purchase of a VPS plan, to host the
+Ruby apps that I build for him. We settled on a medium, but still capable 
+configuration:
+
+- 1GHz of CPU
+- 512 MB of RAM
+- 20 GB of hard-drive
+
+This in my experience should be sufficient to run at least 4 Rails apps, which
+get some small traffic, around 2000 visits / site / month.
+
+So we signed-up for the VPS and I asked the host to install the bare version
+of [Ubuntu 10.04 LTS server](http://releases.ubuntu.com/lucid/). All good so far.
+
+The next step was to install everything needed for a Rails production environment
+and soon I was up and running with one Rails site. 
+
+Everything was going well, until after a week of not really paying attention, 
+things started to slow down. Dramatically.
+
+SSH-ing into the box could take up to 3 minutes and running `ps aux` reported
+the `ps aux` command is taking 74% of CPU. Watch out for the last line:
+
+    $ ps aux
+    USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+    root         1  0.0  0.1  23572  1796 ?        Ss   Jun19   0:01 /sbin/init
+    root         2  0.0  0.0      0     0 ?        S    Jun19   0:00 [kthreadd]
+    root         3  0.0  0.0      0     0 ?        S    Jun19   0:00 [migration/0]
+    root         4  0.0  0.0      0     0 ?        S    Jun19   0:00 [ksoftirqd/0]
+    ...        ...  ...  ...    ...   ... ...      ...  ...     ...  ...
+    XXXX     20340  0.1  0.3  20704  3504 pts/0    Ss   08:51   0:01 -bash
+    XXXX     20356 74.0  0.1  15248  1200 pts/0    R+   09:11   0:00 ps aux
+
+
+Don't get me started on the sluggishness of [Passenger](http://www.modrails.com/). Booting up a Rails app
+took several minutes with a constant of 60% CPU. Once the app was in memory, 
+things kind of worked, until Passenger killed the app for being unused.
+Rinse and repeat.
+
+During this time, ping responses from the machine were anything but consistent,
+or to put it differently: **the only thing that was consistent was the packet loss**:
+
+    --- brestanova.si ping statistics ---
+    57 packets transmitted, 56 packets received, 1.8% packet loss
+    round-trip min/avg/max/stddev = 44.332/1451.272/6094.044/1564.700 ms
+
+As I have quite some experience with small Linux servers, I knew that my old 200MHz
+server in the basement never had problems responding to a ping.
+
+All this was unacceptable and I was in constant contact with the hosting provider
+which was more or less sending me screenshots how his response times are constant
+and at around 15ms. Well sure they are, if you're inside the LAN with the server.
+
+
+## Solutions
+
+But... I managed to fix most of the problems, mostly by reconfiguring Apache and 
+Passenger to limit the amount of instances, to prevent memory saturation. One last
+thing was also to install VMware Tools, which enhances the performance of virtual
+machines, by adding specific drivers for the virtual interfaces.
+
+### VMware tools or Open Virtual Machine Tools
+First I tried to install the VMware tools, which are currently not behaving well on 
+a 64-bit Ubuntu 10.04 server, as compilation from kernel headers is returning error 
+I just don't have time to investigate.
+
+I found an easier and nicer solution, the open source version of VM tools called
+[Open Virtual Machine Tools][1]. These are provided as a Ubuntu package that nicely
+compiles itself into the kernel with a one liner:
+
+    apt-get install --no-install-recommends linux-headers-virtual open-vm-dkms open-vm-tools
+    
+After the process, you need to reboot the VPS to reload the kernel.
+
+### Apache optimizations
+Then off to optimize Apache. I wanted to enable the [Prefork MPM][2], which is the 
+process manager better suited for small VPS instances which normally come with small 
+(usually one) number of CPUs.
+
+    apt-get install apache2-mpm-prefork
+    
+This automatically enables the prefork mechanism. Then I proceeded to configure it
+for the small memory environment I was in.
+
+Go to `/etc/apache2` and edit the `apache2.conf` file. Find the `<IfModule mpm_prefork_module>`
+line and edit accordingly. My settings are:
+
+    <IfModule mpm_prefork_module>
+        StartServers          1
+        MinSpareServers       1
+        MaxSpareServers       5
+        MaxClients            50
+        ServerLimit           50
+        MaxRequestsPerChild   5000
+    </IfModule>
+    
+This is a drastic change from the default configuration, but I find it to perform 
+really well in my setup.
+
+Next I disabled some unneeded modules, which Apache activates in the default 
+installation.
+
+    a2dismod status         # Disable the mod_status
+    a2dismod autoindex      # You probably don't need index of directories in production!
+
+
+### Phusion Passenger optimizations
+Up next is configuring Phusion Passenger to use less resources by default. Put these 
+lines where you include the Passenger module, as they are global parameters.
+
+    PassengerMaxPoolSize 4          # Default is 6, which is too much for 512MB of RAM.
+    PassengerMaxInstancesPerApp 2   # Limit the number of instances per app.
+    PassengerPoolIdleTime 3000      # Increase the time before Passenger kills unused threads (default is 300).
+
+### Restart Apache
+Restart your server with the `apache2ctl restart` to enable the new settings.
+
+
+## Results
+
+I am very satisfied with the results, the server is now fully capable to handle 
+the load that it was meant for.
+
+[Apache Benchmark][3] results speak for themselves. Whereas before the `ab` could
+fail with the connection timeout error, now we're getting consistent and swell
+responses:
+
+    $ ab -c 10 -n 1000 http://www.brestanova.si/
+    Concurrency Level:      10
+    Time taken for tests:   20.117 seconds
+    Complete requests:      1000
+    Failed requests:        0
+    Write errors:           0
+    Total transferred:      3123811 bytes
+    HTML transferred:       2592000 bytes
+    Requests per second:    49.71 [#/sec] (mean)
+    Time per request:       201.173 [ms] (mean)
+    Time per request:       20.117 [ms] (mean, across all concurrent requests)
+    Transfer rate:          151.64 [Kbytes/sec] received
+    
+    Percentage of the requests served within a certain time (ms)
+      50%    170
+      66%    181
+      75%    192
+      80%    241
+      90%    340
+      95%    362
+      98%    376
+      99%    384
+     100%    411 (longest request)
+    
+The server before went to 1.0 load with nothing really happening, now it stays 
+comfortably around 0.5 when handling 10 concurrent requests.
+
+And, of course, the ping went down to being consistent at around 50ms as it 
+should be:
+
+    --- brestanova.si ping statistics ---
+    237 packets transmitted, 237 packets received, 0.0% packet loss
+    round-trip min/avg/max/stddev = 40.108/43.469/80.553/3.281 ms
+    
+## Resources
+
+1. [Phusion Passenger configuration](http://www.modrails.com/documentation/Users%20guide.html)
+2. [Apache Benchmark tools](http://httpd.apache.org/docs/2.0/programs/ab.html)
+3. [Open Virtual Machine Tools](http://open-vm-tools.sourceforge.net/)
+4. [Low memory Apache configurations](http://wiki.vpslink.com/Low_memory_MySQL_/_Apache_configurations)
+5. [Open Virtual Machine Tools on Ubuntu](http://ubuntuforums.org/showthread.php?p=9470205)
+5. [Open Virtual Machine Tools on Ubuntu](https://confluence.terena.org/display/~visser/open-vm-tools+in+Ubuntu+Lucid)
+
+[1]: http://open-vm-tools.sourceforge.net/
+[2]: http://httpd.apache.org/docs/2.0/mod/prefork.html
+[3]: http://httpd.apache.org/docs/2.0/programs/ab.html
