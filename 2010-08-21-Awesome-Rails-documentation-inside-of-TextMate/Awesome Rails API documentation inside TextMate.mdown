@@ -1,0 +1,45 @@
+# Awesome Rails API documentation inside TextMate
+
+Today I stumbled upon a killer feature in TextMate purely by accident. I was hitting
+the `⌃⌘D` command to toggle the Dock, but instead of the dock, I saw a little popup
+showing up, while I was holding down the key combo.
+
+![TextMate Dictionary popup feature on an English word](http://media.tumblr.com/tumblr_l7irossXNY1qahol6.png "TextMate definition of Pointer")
+
+I quickly figured out that it's triggering the Mac OS X Dictionary app, showing the definition 
+of the word below the mouse pointer.
+
+I looked up what's the deal, and it seems [this function exists][1] in TextMate
+since 2005:
+
+> Another nice Tiger-only feature is that TextMate now support the dictionary 
+> popup available by hovering the mouse over a word and pressing ⌃⌘D. Thanks 
+> to Mark Rowe for this one! Now I only need OmniWeb to also support it.
+
+
+## True power == Rails API documentation
+
+Well, to get the definition of an english word is alright and all, but to get
+the contextual explanation of what the `ActiveRecord::Base#create` method does... 
+well, that's on a whole other order of awesomeness.
+
+To make it work, you first need to install the amazing
+[Ruby on Rails dictionary for Mac OS X][2], which you should have already anyway.
+It brings the Rails API to the Mac OS X dictionary app. Kudos to Priit for that.
+
+Another small thing is also to have it set as the default dictionary, so 
+when looking up the word `create` it doesn't show you it's english meaning
+but what it means in the Rails world.
+
+![Mac OS X Dictionary preferences](http://media.tumblr.com/tumblr_l7irocOAUo1qahol6.png "Put Rails API on top of dictionaries")
+
+Just go to the preferences in Dictionary and drag it up the top. There you go.
+
+Now check this out, when I'm editing my `seeds.rb` and press `⌃⌘D` and hover 
+over `create`, voila:
+
+![TextMate Dictionary popup feature on a Rails API call](http://media.tumblr.com/tumblr_l7irnlEuwX1qahol6.png "TextMate definition of ActiveRecord::Base#create")
+
+
+[1]: http://blog.macromates.com/2005/universal-binary-and-more/
+[2]: http://priithaamer.com/blog/ruby-on-rails-dictionary-for-macosx
