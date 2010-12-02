@@ -1,0 +1,19 @@
+# Passenger 3.0 not reloading files on OS X
+
+I recently formatted and reinstalled my MacBook Pro so I also had to
+reinstall my default Ruby development environment.
+
+When installing the new [Passenger 3.0][1] gem everything went smoothly until
+I tried to change something inside a Rails view. The changes weren't visible.
+A quick `sudo apachectl restart` showed that indeed Rails was caching the files,
+like it does in production.
+
+I tried forcing development mode with `RailsEnv "development"` but nothing worked.
+[Turns out][2] that Passenger 3.0 changed the name of that option to `RackEnv`, because
+it's now meant to be running all of your rack powered frameworks and apps.
+
+So just set the `RackEnv "development"` into your virtual host definition file and
+you're good to go.
+
+[1]: http://www.modrails.com/
+[2]: http://groups.google.com/group/phusion-passenger/browse_thread/thread/ddb9dbbad0bfe679
