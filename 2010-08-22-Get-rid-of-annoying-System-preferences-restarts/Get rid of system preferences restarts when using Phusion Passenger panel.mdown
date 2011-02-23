@@ -1,0 +1,23 @@
+# Get rid of system preferences restart when using Phusion Passenger panel
+
+![Mac OS X Snow Leopard system preferences reopen](http://media.tumblr.com/tumblr_lh189ecZVn1qahol6.png "To use the Passenger preference pane, system preferences must quit and reopen.")
+
+Don't you get annoyed of Mac OS X Snow Leopard telling you it must restart 
+the System Preferences app every time you open a 32-bit panel like
+[Phusion Passenger preferences pane][1]?
+
+![Phusion Passenger preference pane](http://media.tumblr.com/tumblr_lh1al8FanL1qahol6.png)
+
+Well the fix is quick and simple, you must go to your `Applications` folder on your mac, find the
+`System Preferences` app, and right-click, Get info, then check **Open in 32-bit mode**. 
+
+![Get info in Mac OS X on System preferences](http://media.tumblr.com/tumblr_lh2stnoQNb1qahol6.png)
+
+See, the thing is that Snow Leopard is mostly 64-bit now, and most of the system apps, including System 
+preferences were rewritten. The Passenger pane on the other hand is not 64-bit, therefore cannot
+be run without a System preferences restart.
+
+Hope you find this useful, it also of course works for any other 32-bit prefpanes, like
+for instance if you have a 32-bit version of MySQL installed, etc.
+
+[1]: http://www.fngtps.com/passenger-preference-pane

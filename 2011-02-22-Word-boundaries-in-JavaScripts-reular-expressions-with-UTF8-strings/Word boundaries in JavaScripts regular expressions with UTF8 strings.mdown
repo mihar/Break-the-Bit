@@ -1,0 +1,74 @@
+# Word boundaries in JavaScript's regular expressions with UTF-8 strings
+
+As I have learned today the hard way, JavaScript's regular expressions support the `\b`
+word boundary class only on ASCII strings. They do not correctly guess word boundaries
+when other UTF-8 characters are present.
+
+To illustrate, look at this simple example:
+
+    string = "Jump over the monkey to the donkey."
+    re = new RegExp("\\b(monkey)\\b", "i")
+    string.replace(re, "*\$1*")
+
+returns
+
+    "Jump over the *monkey* to the donkey."
+    
+In my scenario I needed a way to enclose words in asterisks, but only *whole words*, not
+parts of them.
+
+Let's take a look what happened when we do a similar example, but use some witty slovene
+letters, like Š, Č, Ž:
+
+    string = "Gospod Čižmek je odšel na Čemšeniško planino po smrekove vršičke."
+    re = new RegExp("\\b(čemšeniško)\\b", "i")
+    string.replace(re, "*\$1*")
+    
+we get back
+  
+    "Gospod Čižmek je odšel na Čemšeniško planino po smrekove vršičke."
+
+It's the same string -- *nothing was done*, because the Č of the Čemšeniško made `\b` unusable.
+
+## Solution
+
+The solution lies in imitating the word boundary yourself. So instead of writing `\b`, lets
+write out what it does:
+
+> [The word boundary class] matches any word boundary (test characters must exist at the beginning
+> or end of a word within the string)
+
+Try this (courtesy of my coworker [Rok Gregoric](http://twitter.com/rokgregoric)):
+
+    string = "Gospod Čižmek je odšel na Čemšeniško planino po smrekove vršičke."
+    re = new RegExp("(^\|[ \n\r\t.,'\"\+!?-]+)(Čemšeniško)([ \n\r\t.,'\"\+!?-]+\|$)", "i")
+    string.replace(re, "\$1*\$2*\$3")
+    
+Alright, looks like we got a winner
+
+    "Gospod Čižmek je odšel na *Čemšeniško* planino po smrekove vršičke."
+    
+As you can see, we imitated the boundary class `(^\|[ \n\r\t.,'\"\+!?-]+)(Čemšeniško)([ \n\r\t.,'\"\+!?-]+\|$)`, 
+by matching <strike>all</strike> *most* of non-alphanumeric characters, like space, tab, comma, 
+period, etc. We also do an OR by checking if it's just the beginning or an end of a line 
+with the `^` and `$` characters respectively.
+
+So that's it, it even works on cyrillic!
+
+    string = "Как ми се иска всички програмни езици поддържат UTF-8."
+    re = new RegExp("(^\|[ \n\r\t.,'\"\+!?-]+)(програмни)([ \n\r\t.,'\"\+!?-]+\|$)", "i")
+    string.replace(re, "\$1*\$2*\$3")
+    
+    => "Как ми се иска всички *програмни* езици поддържат UTF-8."
+
+## Conclusion
+
+Looks like there are lots of people confused about this, as can be seen [here][1] and 
+[here][2] on Stack Overflow, and I hope this will help some of them.
+
+For more information on word boundaries, check out this [O'Reilly answers page][3]
+
+
+[1]: http://stackoverflow.com/questions/2881445/utf-8-word-boundary-regex-in-javascript
+[2]: http://stackoverflow.com/questions/3787072/regex-wordwrap-with-utf8-characters-in-js
+[3]: http://answers.oreilly.com/topic/217-how-to-match-whole-words-with-a-regular-expression/
