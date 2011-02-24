@@ -1,0 +1,80 @@
+# Rails 3 AREL count size length weirdness
+
+Today I stumbled upon a spooky quirk in Rails 3 AREL API. There seem
+to be fundamental differences between calling `count`, `size` and `length`
+on ActiveRecord collections.
+
+Take a look at this example, (I'm using Rails 3.0.4 when writing this):
+
+Say we have a `Campaign` model with a scope that returns the last 3 records in our app:
+
+    class Campaign < ActiveRecord::Base
+      scope :last_three, order("id DESC").limit(3)
+    end
+
+Everything works fine when using the app itself. But I stumbled upon a problem 
+when trying to test this functionality in my specs:
+
+    it "should return last three created records"
+      first = Factory :campaign
+      Factory :campaign
+      Factory :campaign
+      last = Factory :campaign
+      
+      Campaign.last_three.should_not include(first)
+      Campaign.last_three.should include(last)
+      Campaign.last_three.count.should eql(3)
+    end
+
+This passes the first two assertions, but fails at the last one:
+
+    should return last three created records
+    expected 3
+         got 4
+         
+Now this is weird right, we are calling `limit(3)` in our scope and it's working
+fine in our app. First I went on a debugging spree, fired up `rails console` and
+tried:
+
+    ree@dashboard :010 > Campaign.count
+     => 20 
+    ree@dashboard :011 > Campaign.last_three.count
+     => 20 
+    ree@dashboard :012 > Campaign.last_three.size
+     => 20 
+    ree@dashboard :013 > Campaign.last_three.to_sql
+     => "SELECT  \"campaigns\".* FROM \"campaigns\" ORDER BY created_at DESC LIMIT 3" 
+    
+You can see that we have 20 campaigns, and that the limited scope is also reporting 20.
+The SQL generated on the other hand looks completely valid, limiting output to 3.
+This baffled me, so I went Googlin'.
+
+This [thread][1] saved the day. Someone was knocking his head the same way as I did and
+[Nicolas][2] shed some light our way.
+
+> * `.count` #=> this always triggers a `SELECT COUNT(*)` on the database
+> * `.size` #=> if the collection has been loaded, defers to `Enumerable#size`, else does the `SELECT COUNT(*)`
+> * `.length` #=> always loads the collection and then defers to `Enumerable#size`
+
+## Solution
+
+So the trick here is, that calling `count` on the scope like that in tests, issues the 
+SQL `COUNT()`, but for some reason without the LIMIT applied.
+The `size` method does the same as `count` if the collection has not been loaded into memory yet. 
+
+The last one, `length`, forces the load and does the sizing after, therefore always returning 
+the correct number:
+
+    ree@dashboard :015 > Campaign.last_three.length
+     => 3
+     
+## Lesson
+
+So the lesson here I guess would be to never use `count` or `size`, but always `length`, on limited scopes in
+your tests, at lest until this is fixed. There is also a [bug filed][3] in Rails' lighthouse,
+so I hope this will be sorted out in the next version.
+
+
+[1]: http://groups.google.com/group/rubyonrails-core/browse_thread/thread/cd633fb3798ead0a
+[2]: http://twitter.com/#!/godfoca
+[3]: https://rails.lighthouseapp.com/projects/8994-ruby-on-rails/tickets/5060
