@@ -1,0 +1,80 @@
+# My revamped nethome is now online
+
+I had plans to re-factor my online presence for quite some time now. Especially I wanted to put offline
+the long-due portfolio site, since I'm not so much in the freelance/web design business anymore.
+
+It's accessible on 4 different domains, because I consolidated two different sites and I also want to have my
+nicknames all linking to me:
+
+* [http://majx.org](http://majx.org)
+* [http://mihar.org](http://mihar.org)
+* [http://miha.rebernik.info](http://miha.rebernik.info)
+* [http://miha-rebernik.com](http://miha-rebernik.com)
+
+## The past
+
+Today, when I launched this, I was feeling nostalgic. I fired up [archive.org](http://archive.org) and it's Wayback Machine,
+to reflect a bit on the past. So in retrospect I can say that I have progressed and improved my skills :-)
+
+Check out one of the first major releases of my site from 2003/2004, when I was a freshman in high-school. I built 
+sort of a local social site for my network of friends. It was pretty popular at the time.
+
+![](http://media.tumblr.com/tumblr_lmpuunURgS1qahol6.jpg)
+
+After that I went on for a few years with only a splash page, then came the version, that was here before.
+Data-wise very similar to this one.
+
+![](http://media.tumblr.com/tumblr_lmpuvmKrr91qahol6.jpg)
+
+## The future
+
+So as a web developer working with cutting edge technologies, the site of course had to be written with some new
+HTML5 semantics and spiced up with some CSS3, mostly proprietary stuff, like `-webkit-transform` but also some 
+`text-shadow`'s and `box-shadow`'s.
+
+![](http://media.tumblr.com/tumblr_lmpv9gqH2Y1qahol6.jpg)
+
+The backend is a really simple Rails 3 app, running a bunch of gems, that *constantly fetches my activities
+across a range of social networks and sites*.
+
+Among others I use and can recommend:
+
+  * [twitter](http://rubygems.org/gems/twitter) for hmm...
+  * [scrobbler](http://rubygems.org/gems/scrobbler) for Last.fm
+  * [tumblr-api](http://rubygems.org/gems/tumblr-api) for Tumblr
+  * [flickraw](http://rubygems.org/gems/flickraw) for Flickr
+  * [httparty](http://rubygems.org/gems/httparty) for everything else
+  
+I'm running them in a tight schedule, so everything is up to date, using [whenever](http://rubygems.org/gems/whenever):
+
+    every 5.minutes do
+      runner "Location.fetch"
+      runner "Track.fetch"
+      runner "Tweet.fetch"
+    end
+
+    every 15.minutes do
+      runner "Photo.fetch"
+    end
+
+    every 30.minutes do
+      runner "Bookmark.fetch"
+    end
+
+    every 2.hours do
+      runner "Post.fetch"
+    end
+
+## Aggregator
+
+The cool part is, all this fetching is also serving me as a backup of all my social data. Sort of like 
+what [Tantek](http://tantek.com/2011/010/b1/owning-your-data) is a big proponent of. He's more strict on this, 
+but in essence is basically, that if Twitter goes bankrupt, you actually loose all of your data there, that you 
+amassed in I don't know how many years.
+
+With this system in place now, I'm fetching my data off the net, and storing it locally in my database.
+
+To be able to do this I had to find a way to prevent duplicates from occurring. The way I went about this is,
+I found some unique piece of data for each kind, and went and set it as a unique in the DB and in Rails.
+
+That in place, I am able to just run my fetchers all the time and it just skips save if a unique key exists.
