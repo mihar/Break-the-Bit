@@ -1,0 +1,142 @@
+# Get your location from Google Latitude API simple with Ruby
+
+As I was [re-aligning my website](http://breakthebit.org/post/6481842203/my-revamped-nethome-is-now-online), I got an interesting
+idea to experiment with. I'm using [Google Latitude](http://google.com/latitude) to track my location for about a year now, and until 
+now I didn't really put this data to work anywhere.
+
+I think I came up with a pretty fun idea:
+
+> **I geolocate the visitor using their IP and then calculate their distance to me and display it.**
+
+It looks pretty neat:
+
+![](http://media.tumblr.com/tumblr_lmpxq3BDE61qahol6.png)
+
+So if you're still interested, here's how it's done.
+
+## Geolocating the visitor
+
+For geolocation I'm using the [geoip](http://rubygems.org/gems/geoip) gem and the free [GeoLite City](http://www.maxmind.com/app/geolitecity)
+database of IP to latitude/longitude mappings.
+
+Simplified, my `Geolocation` class looks like this:
+
+    class Geolocation
+      attr_accessor :country, :state, :street, :city, :lat, :lng
+  
+      def initialize(ip)
+        g = GeoIP.new File.join(Rails.root, "db", "GeoLiteCity.dat")
+        geodata = g.city(ip)
+        return unless geodata
+        self.country = geodata[4]
+        self.state = geodata[6]
+        self.city = geodata[7]
+        self.lat = geodata[9]
+        self.lng = geodata[10]
+      end
+    end
+    
+## Getting your current location from Google Latitude
+
+This is a bit of a hassle, because if you want to go down the [normal route](http://code.google.com/apis/latitude/v1/reference.html#method_latitude_currentLocation_get), 
+you need to tackle OAuth and tokens and whatnot. I wanted to do this simple and fast.
+
+So after a bit more of good ol' Googlin', I found out that the [Google Latitude Public Location Badge](https://www.google.com/latitude/b/0/apps) also has it's own API.
+It's not a full fledged API, it does just one thing: gets your current location. Ah, just what I needed.
+
+![](http://media.tumblr.com/tumblr_lmpybrVGis1qahol6.jpg)
+
+The badge isn't enabled by default, so you have to turn it on in order to use this. Then click on the **Developer information** link and
+you will get your own personal URL for fetching your location in JSON, KML or ATOM.
+
+It looks something like this:
+
+    https://www.google.com/latitude/apps/badge/api?user=-12345678912345&type=json
+    
+The `user` parameter is your user id.
+
+The result looks like this:
+
+    { "type": "FeatureCollection",
+      "features": [
+        { "type": "Feature",
+          "geometry": {"type": "Point", "coordinates": [-122.139526, 37.432956]},
+          "properties": {
+          "id": "-12345678912345",
+          "accuracyInMeters": 1326,
+          "timeStamp": 1307944893,
+          "reverseGeocode": "Palo Alto, CA, USA",
+          "photoUrl": "https://www.google.com/latitude/apps/badge/api?type=photo&photo=xM8IiDABAAA.BBekhFoCXh6RTVmt_rZElA.RtnTylqRENFikqjtTshuNQ",
+          "photoWidth": 96,
+          "photoHeight": 96,
+          "placardUrl": "https://www.google.com/latitude/apps/badge/api?type=photo_placard&photo=xM8IiDABAAA.BBekhFoCXh6RTVmt_rZElA.RtnTylqRENFikqjtTshuNQ&moving=true&stale=true&lod=1&format=png",
+          "placardWidth": 56,
+          "placardHeight": 59
+          }
+        }
+      ]
+    }
+    
+You can use the excellent [httparty](http://rubygems.org/gems/httparty) gem to parse this with ease, like I did in my `Location` class:
+
+    class Location < ActiveRecord::Base
+      def self.fetch
+        loc = HTTParty.get "http://www.google.com/latitude/apps/badge/api?user=-12345678912345&type=json"
+    
+        if loc and loc["features"] and location = loc["features"][0]
+          new_location = self.new
+          
+          # Fetch lat lng
+          if location["geometry"] and coords = location["geometry"]["coordinates"]
+            new_location.lng, new_location.lat = coords[0], coords[1]
+          end
+          
+          # Fetch time and reverse
+          if properties = location["properties"] 
+            new_location.located_at = Time.at properties["timeStamp"] if properties["timeStamp"]
+            new_location.reverse = properties["reverseGeocode"] if properties["reverseGeocode"]
+          end
+          
+          new_location.save
+        end
+      end
+    end
+    
+That's pretty much it, I'm running `Locatin.fetch` on a 5 minute basis from cron, and am building my own location history.
+
+## Calculating the distance
+
+The last bit is calculating the distance from the visitor to me and it's also pretty straightforward. 
+
+With the coordinates of the visitor and me, we can use the almighty [geokit](http://rubygems.org/gems/geokit) gem, include it
+into the `Location` class with:
+
+    class Location < ActiveRecord::Base
+      ...
+      acts_as_mappable
+      ...
+    end
+    
+Then we are instantly able to run distance calculations, like I'm doing in my helper methods, with the `Location#distance_to` method:
+
+    def current_visitor_location
+      @current_visitor_location ||= Geolocation.new request.remote_ip
+    end
+
+    def current_visitor_distance
+      @current_visitor_distance ||= if current_visitor_location
+        current_location.distance_to current_visitor_location.to_a, :units => ["United States", "Canada", "United Kingdom"].include?(current_visitor_location.country) ? :miles : :kms
+      else
+        100 # Whatever.
+      end
+    end
+
+    def current_location
+      @current_location ||= Location.last
+    end
+    
+Blame me for my verbose method names, but that's how I like 'em, nice and descriptive :-)
+
+If you have an eye for details, you also noticed that I'm doing distance in miles for the *Imperial*  among us, other get the kilometers.
+
+That's it, now go and check how far away from me are you, on [majx.org](http://majx.org). The one who's the farthest wins.
