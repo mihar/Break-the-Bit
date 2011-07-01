@@ -1,0 +1,80 @@
+# Fixing Thrift incompatible encoding exception on Ruby 1.9.2
+
+If you've ever done cross-language communication with [Apache Thrift](http://thrift.apache.org/) on Ruby
+and then upgraded to Ruby 1.9.2, you were probably greeted with a nasty exception:
+
+> incompatible character encodings: ASCII-8BIT and UTF-8
+
+At first you get scared and downgrade back to Ruby 1.8, but in the end you want your site to run
+on the [newest Heroku stack](http://devcenter.heroku.com/articles/cedar#stack_software_versions) which
+in turn only support Ruby 1.9.
+
+So then you google around and all you get is [this lousy opened issue](https://issues.apache.org/jira/browse/THRIFT-1023)
+that no one seems to look at and try to fix.
+
+Then you realize you're screwed, cause you'll have to go inside the Thrift code and fix this yourself
+and if you're like me, you're scared outright because encoding problems are sort of the nastiest from my experience.
+
+![](http://media.tumblr.com/tumblr_lnoea8assi1qahol6.png)
+
+Anyways, I rolled up my sleeves and dived in.
+
+## Problem
+
+So the core of the problem lies at least in my case in the `http_client_protocol.rb` file, specifically the line:
+
+    def write(buf); @outbuf << buf; end
+
+After briefing myself on the new encoding paradigm that Ruby 1.9 offer in the excellent 
+[Yehuda Katz article](http://yehudakatz.com/2010/05/05/ruby-1-9-encodings-a-primer-and-the-solution-for-rails/),
+I could conclude that Ruby 1.9 does not approve you concatenating strings in different encodings when it knows they 
+contain characters that not both of the encodings can handle.
+
+So the problem is that `@outbuf` is encoded in UTF-8 and `buf` comes in many variations. Concatenation works well
+until you get some exotic, err... international stuff coming.
+
+### Don't try to east sushi and burgers in a single string
+
+Convoluted? A little, let's try this example:
+
+Concatenating a string `"ascii yo"` and `"is da shit"` would always just work, even if one of them is in ASCII and
+the other in Unicode. That's because they contain english characters, which are mapped to the same bytes in almost all 
+encodings.
+
+But when you got a string `"simple ascii"` and try concatenating with say some Japanese `"生きて来たに"` you'd get the aformentioned
+exception.
+
+## Solution
+
+So the solution that worked for me was to just force the encoding of every incoming string to UTF-8.
+
+    def write(buf)
+      @outbuf << buf.force_encoding("UTF-8")
+    end
+
+That wasn't the end of problems. Because Thrift uses a binary protocol to communicate over the interwebs and binary
+protocols are tight, Thrift uses the `String#length` method to predict the string's length. This was all good in Ruby 1.8
+that didn't handle UTF-8 strings really well.
+
+If we look into the `binary_protocol.rb`, here's how the method `write_string` looks:
+
+    def write_string(str)
+      write_i32(str.length)
+      trans.write(str)
+    end
+
+Ruby 1.9 will tell you the *character length* of a string, but as we all know, UTF-8 characters contain more than one byte.
+There's another method that's more suited for what we need to do here, which is get the *byte length* of a string and it's
+called `String#bytesize`.
+
+    def write_string(str)
+      write_i32(str.bytesize)
+      trans.write(str)
+    end
+    
+That done makes Thrift and us live happily ever after high up in the Heroku castle in the clouds.
+
+## Resources
+
+You can check out [my fork](https://github.com/codeartists/thrift/commit/840889f3f5a737d6d6bffb28a8604176a64bdc45) 
+with the changes on GitHub. I think there are some other areas that need fixing like this so please comment/fork/commit at will.
