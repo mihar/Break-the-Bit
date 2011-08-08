@@ -1,0 +1,39 @@
+As you've probably heard before, the combination of Rails 3 and Ruby 1.9 [slowed down Rails boot times][1] considerably, almost to the pain point.
+
+A little scouring on the internets gave me hope, since the kind Aussie rubyist Xavier was [on the job][2]. Unfortunately at the time I was reading that post my [rvm](http://beginrescueend.com/) wasn't happily compiling my `ruby-head` so I gave up as I had work to do.
+
+Now that [Ruby 1.9.3 preview 1 has been released][3] I eagerly went on to try it out.
+
+I'm extremely happy with the results, so far I'm getting around 50% improvements just like that.
+
+Benchmarks:
+
+The stable rubies:
+
+    $ ruby -v
+    ruby 1.9.2p290 (2011-07-09 revision 32553) [x86_64-darwin11.0.0]
+
+    $ time rails r "puts Time.now"
+    2011-08-08 12:26:27 -0700
+
+    real  0m14.595s
+    user  0m12.836s
+    sys   0m1.448s
+
+And the new rubies:
+
+    $ ruby -v
+    ruby 1.9.3dev (2011-07-31 revision 32789) [x86_64-darwin11.0.0]
+
+    $ time rails r "puts Time.now"
+    2011-08-08 12:26:07 -0700
+
+    real  0m6.876s
+    user  0m5.969s
+    sys   0m0.744s
+
+Yaay for speed!
+
+[1]: http://scoop.simplyexcited.co.uk/2011/03/14/rails-3-benchmarks-startup-time/
+[2]: http://www.rubyinside.com/ruby-1-9-3-faster-loading-times-require-4927.html
+[3]: http://www.rubyinside.com/ruby-1-9-3-preview-1-released-5229.html
