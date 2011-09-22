@@ -96,8 +96,6 @@ If there's no geolocation API support or the user declines the lookup, I simply 
 If the geolocation is approved I'm showing the spinner until I get the location, then update just the distance
 string and show the whole thing.
 
-You can see it in action on my site [majx.org](http://majx.org) and just inspect the source.
-
 ## Mobile
 
 This example really shines on a mobile device. Here's the example in action on my iPhone which both sets my 
@@ -105,6 +103,11 @@ location to Latitude and compares it:
 
 ![](http://media.tumblr.com/tumblr_lrwur3C2cP1qahol6.png)
 
+## Code
+
+You can see this in action on my site [majx.org](http://majx.org) and just inspect the source. 
+
+The entire Rails project is also sitting in a [Github repo][9]. Feel free to inspect and fork.
 
 
 [1]: http://breakthebit.org/post/6481842203/my-revamped-nethome-is-now-online
@@ -115,3 +118,4 @@ location to Latitude and compares it:
 [6]: http://www.alistapart.com/articles/understandingprogressiveenhancement
 [7]: http://en.wikipedia.org/wiki/Haversine_formula
 [8]: http://stackoverflow.com/questions/1502590/calculate-distance-between-two-points-in-google-maps-v3
+[9]: https://github.com/mihar/majxorg
