@@ -1,0 +1,117 @@
+# Using HTML5 geolocation API to get the distance of the visitor from me
+
+As I [mentioned][1] a couple of months back, I revamped [my site](http://majx.org) that represents me online.
+One of the coolest features I employed over there was locating the visitor with GeoIP,
+pulling my current location from Google Latitude with a [clever hack][2] to bypass all the API security
+shenanigans and displaying a distance of the visitor from me.
+
+I try to use the site as an excuse to play with the cutting-edge technologies like new HTML5 APIs.
+
+After looking around the wonderful [HTML5 Rocks][3] page, I decided to play with the [Geolocation API][4]
+and try to improve the visitor's location over [GeoIP][5].
+
+It's pretty straightforward, you just need to be careful and use the [progressive enhancement][6] approach
+as usual.
+
+## Requesting the visitor's location
+
+To request the visitor's location from the browser, you can do this:
+
+    if ( navigator.geolocation ) { // Check that the browser supports geolocation.
+      // Request current position and provide callbacks.
+      navigator.geolocation.getCurrentPosition(Geolocation.distance_from, Geolocation.display_location)
+      
+      // Keep watching the position and call callbacks on change.
+      navigator.geolocation.watchPosition(Geolocation.distance_from)
+    } else {
+      // Fallback gracefully if geolocation isn't working.
+      Geolocation.display_location()
+    }
+    
+This will popup a permission dialog in browsers that will look something like this (Safari):
+
+![](http://media.tumblr.com/tumblr_lrwszelcq41qahol6.png)
+
+## Getting my current location
+
+My location is [fetched from Google Latitude][2] by background processes in my Rails app. 
+
+For the client-side calculation I need my current location _on the client_, so I made a 
+`/location.js` route which renders the `location.js.erb` file
+
+    var current_location = {latitude: <%= current_location.lat %>, longitude:  <%= current_location.lng %>}
+    
+into something like this:
+
+    var current_location = {lat: 37.4317, lng:  -122.145}
+
+## Calculating the distance from the visitor to me
+
+Now that we have both locations as latitude/longitude pairs, we can throw together a quick
+Geolocation object:
+
+    var Geolocation = {
+      rad: function(x) { return x * Math.PI / 180 },
+  
+      // Distance in kilometers between two points using the Haversine algo.
+      haversine: function(p1, p2) {
+        var R = 6371 // Earth's mean radius in km.
+        var dLat  = this.rad(p2.latitude - p1.latitude)
+        var dLong = this.rad(p2.longitude - p1.longitude)
+
+        var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(this.rad(p1.latitude)) * Math.cos(this.rad(p2.latitude)) * Math.sin(dLong/2) * Math.sin(dLong/2)
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+        var d = R * c
+
+        return Math.round(d)
+      },
+  
+      // Distance between me and the passed position.
+      distance_from: function(position) {
+        Geolocation.display_location()
+        var distance = Geolocation.haversine(position.coords, current_location)
+        
+        // Sugar: If distance is less than 1km, don't bump into me.
+        if ( distance && distance > 0 ) $("#distance").text(distance + " km")
+        else $("#user_distance").html("<strong>You're close!</strong> Watch my toes!")
+      },
+  
+      // Hide spinner and show location.
+      display_location: function() {
+        $("#user_distance").show()
+        $("#geolocating").hide()
+      }
+    }
+    
+The object contains a simple implementation of the [Haversine formula][7] for getting the distance between
+two points on a map. I found it in a [discussion][8] on Stack Overflow.
+
+## Progressive enhancement
+
+Basically I'm always getting the GeoIP based distance and just hiding it with CSS on load.
+
+If there's no geolocation API support or the user declines the lookup, I simply display it like nothing happened.
+
+If the geolocation is approved I'm showing the spinner until I get the location, then update just the distance
+string and show the whole thing.
+
+You can see it in action on my site [majx.org](http://majx.org) and just inspect the source.
+
+## Mobile
+
+This example really shines on a mobile device. Here's the example in action on my iPhone which both sets my 
+location to Latitude and compares it:
+
+![](http://media.tumblr.com/tumblr_lrwur3C2cP1qahol6.png)
+
+
+
+[1]: http://breakthebit.org/post/6481842203/my-revamped-nethome-is-now-online
+[2]: http://breakthebit.org/post/6482987550/get-your-location-from-google-latitude-api-simple-with
+[3]: http://html5rocks.com
+[4]: http://playground.html5rocks.com/#get_current_position
+[5]: http://rubygems.org/gems/geoip
+[6]: http://www.alistapart.com/articles/understandingprogressiveenhancement
+[7]: http://en.wikipedia.org/wiki/Haversine_formula
+[8]: http://stackoverflow.com/questions/1502590/calculate-distance-between-two-points-in-google-maps-v3
