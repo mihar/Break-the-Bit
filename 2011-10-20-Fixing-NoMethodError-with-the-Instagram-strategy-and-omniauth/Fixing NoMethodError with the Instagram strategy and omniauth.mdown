@@ -1,0 +1,58 @@
+# Fixing NoMethodError with the Instagram strategy and omniauth
+
+I was pretty disappointed when realizing that the [instagram strategy][1] of [omniauth][2]
+is somewhat broken. Soon I got irritated enough to go dig in and try fixing it.
+
+The exact exception is:
+
+> You have a nil object when you didn't expect it!
+> You might have expected an instance of Array.
+> The error occurred while evaluating nil.+
+
+The stack trace goes into the depths of the Ruby standard library `ruby/1.9.1/net/http.rb`
+that's why it looks spooky at first, but then I isolated the problem to this call in
+[instagram.rb][1]:
+
+    oa-oauth (0.3.0) lib/omniauth/strategies/oauth2/instagram.rb:46:in `user_data'
+
+which does this:
+
+    @data ||= MultiJson.decode(@access_token.get('/v1/users/self'))
+
+So I guess the OAuth client object which resides in the `@access_token` is trying to do another call
+to the Instagram API in order to fetch some additional user data. And in turn things go horribly wrong 
+somewhere along the way.
+
+I tried some debugging, to see if I could get around this somehow by not calling this API request, so I did this:
+
+      raise @access_token.inspect
+
+And to my surprise I found out, that the most necessary user data (at least what I need) was already present in this
+object, without calling the API for info. The inspect revealed this:
+
+    #<OAuth2::AccessToken:0x007fdb6bbd5210 @client=#<OAuth2::Client:0x007fdb6ba45d78 @options={:authorize_url=>"/oauth/authorize", :access_token_url=>"/oauth/access_token"}, 
+    @token_method=:post, @id="8c83b4580fb64822a40b9901a27b515b", @secret="8f2da31def36496080bbd8ddd1ee8238", @site="https://api.instagram.com/", @connection=#<Faraday::Connection:0x007fdb6ba45bc0 @headers={}, @params={}, @options={}, @ssl={}, @parallel_manager=nil, @scheme="https", 
+    @host="api.instagram.com", @port=nil, @path_prefix="/", @builder=#<Faraday::Builder:0x007fdb6ba449a0 @handlers=[Faraday::Request::UrlEncoded, Faraday::Adapter::NetHttp]>>, @json=nil, @raise_errors=true>, 
+    @token="239717.8c83b45.1b2950941cb32327d04f6b9725912d", @refresh_token="", @expires_in=nil, 
+    @params={"user"=>{"username"=>"mihar", "bio"=>"", "website"=>"", "profile_picture"=>"http://images.instagram.com/profiles/profile_239757_75sq_1287823964.jpg", "full_name"=>"Miha Rebernik", "id"=>"239717"}}, 
+    @token_param="oauth_token">
+
+Check the `@params` method, it has all I need: my user ID, my username and the token is already there also.
+
+## Solution
+
+So my "clever" fix was to just utilize this `@params` data and mock the data object like this:
+
+    @data ||= {'data' => @access_token.params["user"]}
+
+Check the change in a diff here at [this commit](https://github.com/mihar/omniauth/commit/8e6f527864072d930aed4ef8997dafc96c953745)
+
+This solved the NoMethodError problem and everything works fine for me, as you can see in this screenshot:
+
+![](http://media.tumblr.com/tumblr_ltdp8aI4sp1qahol6.jpg)
+
+In case you're wondering what this is, it's a new version of [TimeKiwi](http://timekiwi.com) that I'm currently 
+developing. Go check it ou if you haven't already.
+
+[1]: https://github.com/intridea/omniauth/blob/0-3-stable/oa-oauth/lib/omniauth/strategies/oauth2/instagram.rb
+[2]: https://github.com/intridea/omniauth
